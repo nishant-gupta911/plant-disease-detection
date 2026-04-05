@@ -9,7 +9,7 @@ from typing import Dict, List, Any
 
 from .model import build_model
 from .utils import load_image_from_bytes, preprocess_image, get_top_k_predictions, is_likely_plant_leaf
-from .config import MODEL_PATH, CLASSES_PATH, DEVICE, NUM_CLASSES, TOP_K
+from .config import MODEL_PATH, CLASSES_PATH, DEVICE, TOP_K
 
 
 class PredictionEngine:
@@ -42,26 +42,26 @@ class PredictionEngine:
             raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
         if not CLASSES_PATH.exists():
             raise FileNotFoundError(f"Class names not found at {CLASSES_PATH}")
+
+        print(f"📂 Loading class names from {CLASSES_PATH}...")
+        with open(CLASSES_PATH, 'r') as f:
+            classes_dict = json.load(f)
+
+        if isinstance(classes_dict, dict):
+            self.class_names = [classes_dict[str(i)] for i in range(len(classes_dict))]
+        else:
+            self.class_names = classes_dict
+
+        num_classes = len(self.class_names)
+        print(f"✓ Loaded {num_classes} classes")
         
         print(f"📥 Loading model from {MODEL_PATH}...")
-        self.model = build_model(num_classes=NUM_CLASSES)
+        self.model = build_model(num_classes=num_classes, pretrained=False)
         checkpoint = torch.load(MODEL_PATH, map_location=self.device)
         self.model.load_state_dict(checkpoint)
         self.model = self.model.to(self.device)
         self.model.eval()
         print("✓ Model loaded successfully")
-        
-        print(f"📂 Loading class names from {CLASSES_PATH}...")
-        with open(CLASSES_PATH, 'r') as f:
-            classes_dict = json.load(f)
-        
-        # Convert dict {id: name} to list ordered by id
-        if isinstance(classes_dict, dict):
-            self.class_names = [classes_dict[str(i)] for i in range(len(classes_dict))]
-        else:
-            self.class_names = classes_dict
-        
-        print(f"✓ Loaded {len(self.class_names)} classes")
     
     def predict(self, image_bytes: bytes) -> Dict[str, Any]:
         """
@@ -75,16 +75,6 @@ class PredictionEngine:
         """
         # Load image
         image = load_image_from_bytes(image_bytes)
-        
-        # Check if image looks like a plant leaf
-        if not is_likely_plant_leaf(image):
-            return {
-                "error": "Image validation failed",
-                "message": "This doesn't look like a plant leaf. Please upload a clear image of a leaf.",
-                "predicted_class": None,
-                "confidence": 0.0,
-                "top_5": []
-            }
         
         # Preprocess and prepare for model
         tensor = preprocess_image(image)

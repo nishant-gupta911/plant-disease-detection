@@ -2,6 +2,7 @@
 Production-grade FastAPI backend for Plant Disease Detection
 Unified PyTorch inference engine
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,11 +12,35 @@ from .inference import PredictionEngine
 from .config import CORS_ORIGINS, API_HOST, API_PORT
 
 
-# Initialize FastAPI app
+# Global prediction engine (loaded once)
+prediction_engine = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for FastAPI app"""
+    # Startup
+    global prediction_engine
+    try:
+        print("\n🌱 Starting Plant Disease Detection API...")
+        prediction_engine = PredictionEngine()
+        print("✓ Server ready for predictions!\n")
+    except Exception as e:
+        print(f"✗ Error during startup: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown (if needed)
+    print("\n🌱 Shutting down Plant Disease Detection API...")
+
+
+# Initialize FastAPI app with lifespan
 app = FastAPI(
     title="Plant Disease Detection API",
     description="EfficientNetB0-based REST API for detecting plant diseases",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -26,22 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global prediction engine (loaded once)
-prediction_engine = None
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize prediction engine on startup"""
-    global prediction_engine
-    try:
-        print("\n🌱 Starting Plant Disease Detection API...")
-        prediction_engine = PredictionEngine()
-        print("✓ Server ready for predictions!\n")
-    except Exception as e:
-        print(f"✗ Error during startup: {e}")
-        raise
 
 
 @app.get("/")

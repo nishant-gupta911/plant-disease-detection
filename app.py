@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from backend.model import build_model
-from backend.config import NUM_CLASSES, IMG_SIZE, MODEL_PATH, CLASSES_PATH
+from backend.config import IMG_SIZE, MODEL_PATH, CLASSES_PATH
 
 # Page config
 st.set_page_config(
@@ -57,18 +57,17 @@ st.markdown("""
 def load_model_and_classes():
     """Load the trained model and class names"""
     try:
-        # Load model
-        device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        model = build_model(num_classes=NUM_CLASSES)
-        model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-        model = model.to(device)
-        model.eval()
-        
-        # Load classes
         with open(CLASSES_PATH, 'r') as f:
             classes_dict = json.load(f)
             classes = [classes_dict[str(i)] for i in range(len(classes_dict))]
-        
+
+        # Load model
+        device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        model = build_model(num_classes=len(classes), pretrained=False)
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+        model = model.to(device)
+        model.eval()
+
         return model, classes, device
     except Exception as e:
         st.error(f"❌ Error loading model: {e}")

@@ -31,10 +31,10 @@ print(f"Device: {device}")
 CONFIG = {
     "model_name": "efficientnet_b0",
     "image_size": 224,
-    "batch_size": 64,
+    "batch_size": 32,
     "num_workers": 0,
-    "phase1_epochs": 8,
-    "phase2_epochs": 22,
+    "phase1_epochs": 10,
+    "phase2_epochs": 20,
     "lr_head": 1e-3,
     "lr_backbone": 3e-5,
     "weight_decay": 1e-4,
@@ -47,33 +47,40 @@ CONFIG = {
     "train_path": "data/PlantDoc-Dataset-master/train",
     "test_path": "data/PlantDoc-Dataset-master/test",
     "checkpoint_dir": "checkpoints",
-    "best_model_path": "checkpoints/best_model.pth",
+    "best_model_path": "models/model.pt",  # Save directly to models directory for production
     "log_path": "logs/training_log.csv",
     "confusion_matrix_path": "logs/confusion_matrix.png",
     "classes_path": "models/classes.json",
-    "top_classes": [
-        "Corn leaf blight",
-        "Tomato Septoria leaf spot",
-        "Squash Powdery mildew leaf",
-        "Raspberry leaf",
-        "Potato leaf early blight",
-        "Corn rust leaf",
-        "Blueberry leaf",
+    # Updated to train on all 28 available classes from PlantDoc dataset
+    "all_classes": [
+        "Apple Scab Leaf", "Apple leaf", "Apple rust leaf",
+        "Bell_pepper leaf", "Bell_pepper leaf spot",
+        "Blueberry leaf", "Cherry leaf",
+        "Corn Gray leaf spot", "Corn leaf blight", "Corn rust leaf",
         "Peach leaf",
-        "Tomato leaf late blight",
-        "Tomato leaf bacterial spot",
+        "Potato leaf early blight", "Potato leaf late blight",
+        "Raspberry leaf", "Soyabean leaf",
+        "Squash Powdery mildew leaf",
+        "Strawberry leaf",
+        "Tomato Early blight leaf", "Tomato Septoria leaf spot",
+        "Tomato leaf", "Tomato leaf bacterial spot",
+        "Tomato leaf late blight", "Tomato leaf mosaic virus",
+        "Tomato leaf yellow virus", "Tomato mold leaf",
+        "Tomato two spotted spider mites leaf",
+        "grape leaf", "grape leaf black rot",
     ],
     "val_split": 0.15,
-    "num_classes": 10,
-    "max_minutes": 43,
+    "num_classes": 28,  # All PlantDoc classes
+    "max_minutes": 120,  # Increased for 28 classes
     "seed": 42,
 }
 
 torch.manual_seed(CONFIG["seed"])
 np.random.seed(CONFIG["seed"])
 
-if len(CONFIG["top_classes"]) != CONFIG["num_classes"]:
-    raise ValueError("top_classes must contain exactly 10 class names.")
+# Validate class count
+if len(CONFIG["all_classes"]) != CONFIG["num_classes"]:
+    raise ValueError(f"all_classes must contain exactly {CONFIG['num_classes']} class names.")
 
 
 train_root = CONFIG["train_path"]
@@ -89,12 +96,12 @@ class_counts = {
     if os.path.isdir(os.path.join(train_root, cls))
 }
 
-missing = [cls for cls in CONFIG["top_classes"] if cls not in class_counts]
+missing = [cls for cls in CONFIG["all_classes"] if cls not in class_counts]
 if missing:
-    raise FileNotFoundError(f"Configured top classes not found in training set: {missing}")
+    raise FileNotFoundError(f"Configured classes not found in training set: {missing}")
 
-print("\nTop 10 classes selected:")
-for idx, cls_name in enumerate(CONFIG["top_classes"]):
+print(f"\nTraining on {len(CONFIG['all_classes'])} classes:")
+for idx, cls_name in enumerate(CONFIG["all_classes"]):
     print(f"  {idx}: {cls_name} ({class_counts[cls_name]} images)")
 
 
@@ -227,8 +234,8 @@ def save_confusion_matrix(true_labels, pred_labels):
         annot=True,
         fmt="d",
         cmap="YlGnBu",
-        xticklabels=CONFIG["top_classes"],
-        yticklabels=CONFIG["top_classes"],
+        xticklabels=CONFIG["all_classes"],
+        yticklabels=CONFIG["all_classes"],
     )
     plt.xlabel("Predicted")
     plt.ylabel("True")
@@ -240,7 +247,7 @@ def save_confusion_matrix(true_labels, pred_labels):
 
 if __name__ == "__main__":
     full_train = datasets.ImageFolder(CONFIG["train_path"])
-    kept = {class_name: idx for idx, class_name in enumerate(CONFIG["top_classes"])}
+    kept = {class_name: idx for idx, class_name in enumerate(CONFIG["all_classes"])}
     valid_indices = [
         index
         for index, (_, label) in enumerate(full_train.samples)
@@ -393,12 +400,12 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(CONFIG["best_model_path"], map_location=device))
     _, test_acc, test_preds, test_labels = validate(test_loader, model, device, criterion, use_tta=CONFIG["use_tta"])
     print(f"\nTest Accuracy (TTA): {test_acc:.4f}")
-    print(classification_report(test_labels, test_preds, target_names=CONFIG["top_classes"], digits=3))
+    print(classification_report(test_labels, test_preds, target_names=CONFIG["all_classes"], digits=3))
 
     save_confusion_matrix(test_labels, test_preds)
 
     with open(CONFIG["classes_path"], "w", encoding="utf-8") as handle:
-        json.dump(CONFIG["top_classes"], handle, indent=2)
+        json.dump(CONFIG["all_classes"], handle, indent=2)
 
     print(f"Classes saved -> {CONFIG['classes_path']}")
     print(f"Confusion matrix saved -> {CONFIG['confusion_matrix_path']}")

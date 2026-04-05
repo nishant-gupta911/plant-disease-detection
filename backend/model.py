@@ -37,11 +37,12 @@ class PlantDiseaseClassifier(nn.Module):
     Better for plant disease detection
     """
     
-    def __init__(self, num_classes: int = 114):
+    def __init__(self, num_classes: int = 114, pretrained: bool = True):
         super().__init__()
         
         # Load pretrained ResNet50 (stronger model than EfficientNet)
-        self.backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        weights = models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        self.backbone = models.resnet50(weights=weights)
         
         # Freeze earlier layers for fine-tuning
         for param in list(self.backbone.parameters())[:-30]:
@@ -115,5 +116,5 @@ def build_model(num_classes: int = 114, pretrained: bool = True) -> PlantDisease
     Returns:
         Model instance
     """
-    model = PlantDiseaseClassifier(num_classes=num_classes)
+    model = PlantDiseaseClassifier(num_classes=num_classes, pretrained=pretrained)
     return model
