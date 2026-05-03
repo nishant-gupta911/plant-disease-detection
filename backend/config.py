@@ -10,8 +10,8 @@ MODEL_PATH = MODEL_DIR / "model.pt"
 CLASSES_PATH = MODEL_DIR / "classes.json"
 
 # Model configuration
-IMG_SIZE = 256  # Updated for better feature extraction
-DEVICE = "cpu"  # Use CPU for inference (model trained on CPU)
+IMG_SIZE = 224  # Match training image size (EfficientNet B0)
+DEVICE = "cpu"  # Use CPU for inference
 NUM_CLASSES = 28  # PlantDoc dataset
 
 # API Configuration

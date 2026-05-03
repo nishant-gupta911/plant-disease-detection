@@ -21,12 +21,16 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore")
 
 
-if not torch.backends.mps.is_available():
-    raise RuntimeError("MPS is required for this script. Apple Metal device not found.")
-
-device = torch.device("mps")
-print(f"Device: {device}")
-
+# Device selection with fallback
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print(f"Device: {device} (Apple Metal)")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+    print(f"Device: {device} (NVIDIA GPU)")
+else:
+    device = torch.device("cpu")
+    print(f"Device: {device} (CPU - slower training)")
 
 CONFIG = {
     "model_name": "efficientnet_b0",
@@ -279,7 +283,7 @@ if __name__ == "__main__":
     loader_kwargs = {
         "batch_size": CONFIG["batch_size"],
         "num_workers": CONFIG["num_workers"],
-        "pin_memory": False,
+        "pin_memory": False, "drop_last": True,
     }
 
     train_loader = DataLoader(train_ds, sampler=sampler, **loader_kwargs)
